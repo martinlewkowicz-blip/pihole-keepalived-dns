@@ -1,14 +1,44 @@
-# Example Keepalived configuration for a Pi-hole HighAvailability setup.
-# Replace all placeholder values before use.
+# Keepalived configuration for Pi-hole Node 2
+#
+# Copy to:
+#   /etc/keepalived/keepalived.conf
+#
+# Replace:
+#   eth0                 with your real network interface
+#   192.168.178.53/24    with your shared DNS VIP
+#   51                   with the same VRRP router ID as Node 1
 
-vrrp_instance PIHOLE_VIP {
-    state BACKUP		# This is the node for failsafe
+global_defs {
+    router_id PIHOLE_NODE_2
+    enable_script_security
+    script_user root
+}
+
+vrrp_script check_pihole_dns {
+    script "/usr/local/sbin/pihole-dns-health-check.sh"
+    interval 5
+    timeout 3
+    fall 2
+    rise 2
+}
+
+vrrp_instance PIHOLE_DNS {
+    state BACKUP
     interface eth0
     virtual_router_id 51
-    priority 100		# The BACKUP has lower Priority
+    priority 100
     advert_int 1
 
+    authentication {
+        auth_type PASS
+        auth_pass ChangeThisVRRPKey
+    }
+
     virtual_ipaddress {
-        192.168.1.100/24
+        192.168.178.53/24
+    }
+
+    track_script {
+        check_pihole_dns
     }
 }

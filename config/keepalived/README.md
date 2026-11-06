@@ -1,24 +1,104 @@
-# Keepalived Configuration Examples
+# Keepalived configuration
 
-This directory contains separate example configurations for the two Pi-hole nodes.
+This directory contains example configurations for a two-node Pi-hole DNS failover setup.
 
-| File | Node | Role |
+## Files
+
+| File | Purpose |
+|---|---|
+| `pihole-node-1.keepalived.conf.example` | Primary node configuration |
+| `pihole-node-2.keepalived.conf.example` | Standby node configuration |
+
+## Installation
+
+On **both** nodes:
+
+```bash
+sudo apt update
+sudo apt install -y keepalived
+```
+
+Copy the appropriate configuration:
+
+```bash
+# Node 1
+sudo cp config/keepalived/pihole-node-1.keepalived.conf.example /etc/keepalived/keepalived.conf
+
+# Node 2
+sudo cp config/keepalived/pihole-node-2.keepalived.conf.example /etc/keepalived/keepalived.conf
+```
+
+Copy the health-check script:
+
+```bash
+sudo cp scripts/health-check.example.sh /usr/local/sbin/pihole-dns-health-check.sh
+sudo chmod 750 /usr/local/sbin/pihole-dns-health-check.sh
+```
+
+Enable and start Keepalived:
+
+```bash
+sudo systemctl enable --now keepalived
+```
+
+## Values you must change
+
+| Setting | Node 1 example | Node 2 example |
 |---|---|---|
-| [`pihole-node-1.keepalived.conf.example`](pihole-node-1.keepalived.conf.example) | Pi-hole node 1 | Primary / initial MASTER |
-| [`pihole-node-2.keepalived.conf.example`](pihole-node-2.keepalived.conf.example) | Pi-hole node 2 | Backup / initial BACKUP |
+| `state` | `MASTER` | `BACKUP` |
+| `priority` | `150` | `100` |
+| `router_id` | `PIHOLE_NODE_1` | `PIHOLE_NODE_2` |
+| `interface` | Your real interface | Your real interface |
+| `virtual_router_id` | `51` | `51` |
+| `auth_pass` | Same on both nodes | Same on both nodes |
+| VIP | Same on both nodes | Same on both nodes |
 
-## Important values
+## Find your network interface
 
-| Setting | Must match across nodes? | Purpose |
-|---|---:|---|
-| `virtual_router_id` | Yes | Identifies the VRRP group |
-| `virtual_ipaddress` | Yes | Shared DNS address used by clients |
-| `interface` | Usually yes | Network interface used for VRRP |
-| `state` | No | Initial preferred role: `MASTER` or `BACKUP` |
-| `priority` | No | Higher priority is preferred for the MASTER role |
-| `router_id` | No | Unique identifier for each Keepalived node |
+```bash
+ip -brief address show
+```
 
+Common values are:
 
-## Usage
+- `eth0` on Raspberry Pi OS with Ethernet
+- `end0` on some newer Raspberry Pi OS images
+- `enp1s0`, `ens18`, or similar on x86 systems
 
-Copy the matching example file to `/etc/keepalived/keepalived.conf` on the corresponding Raspberry Pi, adjust the placeholders, then validate and restart Keepalived according to your distribution’s service management setup.
+## Verify Keepalived
+
+On Node 1:
+
+```bash
+sudo systemctl status keepalived
+sudo journalctl -u keepalived -f
+ip addr show dev eth0
+```
+
+You should see the VIP assigned to the active node:
+
+```text
+inet 192.168.178.53/24 ...
+```
+
+On Node 2, the VIP should normally not be present while Node 1 is healthy.
+
+## VRRP router ID
+
+`virtual_router_id` must be:
+
+- Identical on both Pi-hole nodes.
+- Unique within the same Layer 2 broadcast domain/VLAN.
+- Between `1` and `255`.
+
+If another Keepalived installation already uses ID `51`, choose another value such as `52`, but use the same value on both Pi-hole nodes.
+
+## Security
+
+Change this line on both nodes:
+
+```conf
+auth_pass ChangeThisVRRPKey
+```
+
+Use the same value on both nodes. VRRP authentication is not strong encryption; it is mainly intended to prevent accidental participation by unrelated devices.
