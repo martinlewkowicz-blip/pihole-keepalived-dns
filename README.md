@@ -84,6 +84,16 @@ Enter only the VIP there, for example:
 
 Do not enter the individual Pi-hole node IPs in this field.
 
+## Configuration
+
+This repository contains example values only.
+
+Do not commit real IP addresses, hostnames, MAC addresses, passwords,
+API tokens, or VRRP authentication keys to a public repository.
+
+Use a private Ansible inventory and Ansible Vault for environment-specific
+values.
+
 ## Security notes
 
 - Keep SSH and the Pi-hole web interface on the real node IPs.
